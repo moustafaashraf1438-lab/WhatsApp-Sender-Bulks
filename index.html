@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Bulk Sender</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #25D366;
+    --dark-green: #128C7E;
+    --light-green: #DCF8C6;
+    --bg: #0a0a0a;
+    --card: #111111;
+    --border: #222;
+    --text: #f0f0f0;
+    --muted: #888;
+    --red: #ff4757;
+    --yellow: #ffa502;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: -1px;
+  }
+
+  .header p { color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+
+  /* Status Bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+  }
+
+  .status-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--green); animation: pulse 2s infinite; }
+  .status-dot.waiting { background: var(--yellow); animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  .status-text { font-size: 0.95rem; font-weight: 600; }
+
+  /* QR */
+  #qr-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  #qr-section h3 { color: var(--green); margin-bottom: 10px; font-size: 1.1rem; }
+  #qr-section p { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.7; }
+  #qr-img { border-radius: 12px; border: 4px solid var(--green); max-width: 220px; }
+
+  /* Grid */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media(max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+  }
+
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 6px; }
+
+  textarea, input[type=text], input[type=number] {
+    width: 100%;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: vertical;
+  }
+
+  textarea:focus, input:focus { border-color: var(--green); }
+
+  textarea { min-height: 120px; }
+
+  .hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .hint span {
+    background: #222;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: var(--green);
+  }
+
+  /* Upload */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-area:hover { border-color: var(--green); background: #1a2a1a; }
+  .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-area .icon { font-size: 2rem; margin-bottom: 6px; }
+  .upload-area p { font-size: 0.85rem; color: var(--muted); }
+  .upload-area .filename { color: var(--green); font-weight: 600; font-size: 0.9rem; margin-top: 6px; }
+
+  /* Delay */
+  .delay-row { display: flex; gap: 10px; align-items: flex-end; }
+  .delay-row > div { flex: 1; }
+  .delay-row label { margin-bottom: 6px; }
+
+  /* Preview */
+  #preview-box {
+    background: #1a2a1a;
+    border: 1px solid #2a4a2a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: var(--light-green);
+    white-space: pre-wrap;
+    min-height: 60px;
+    line-height: 1.7;
+    display: none;
+  }
+
+  /* Contacts preview */
+  #contacts-info {
+    background: #1a1a2a;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.88rem;
+    color: #aab;
+    display: none;
+    margin-top: 10px;
+  }
+
+  /* Image preview */
+  #img-preview { max-width: 100%; border-radius: 10px; margin-top: 10px; display: none; }
+
+  /* Buttons */
+  .btn-start {
+    width: 100%;
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 16px;
+  }
+  .btn-start:hover { background: #20bd5a; transform: translateY(-1px); }
+  .btn-start:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+
+  .btn-stop {
+    width: 100%;
+    background: transparent;
+    color: var(--red);
+    border: 2px solid var(--red);
+    border-radius: 12px;
+    padding: 14px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+    display: none;
+  }
+  .btn-stop:hover { background: var(--red); color: #fff; }
+
+  /* Progress */
+  #progress-section { display: none; }
+
+  .progress-bar-wrap {
+    background: #1a1a1a;
+    border-radius: 100px;
+    height: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--dark-green), var(--green));
+    border-radius: 100px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .countdown {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--yellow);
+    margin-top: 8px;
+    font-weight: 600;
+    min-height: 22px;
+  }
+
+  /* Log */
+  #log-list {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+    padding-left: 2px;
+  }
+
+  #log-list::-webkit-scrollbar { width: 4px; }
+  #log-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+  .log-item {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border-right: 3px solid transparent;
+  }
+  .log-item.success { border-color: var(--green); }
+  .log-item.fail { border-color: var(--red); }
+  .log-item .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-item .log-name { font-weight: 600; }
+  .log-item .log-status { margin-right: auto; }
+  .log-item.success .log-status { color: var(--green); }
+  .log-item.fail .log-status { color: var(--red); }
+
+  .full-width { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📤 WhatsApp Bulk Sender</h1>
+  <p>إرسال رسائل جماعية مخصصة مع صور بفواصل زمنية آمنة</p>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="status-dot" id="status-dot"></div>
+  <span class="status-text" id="status-text">جاري الاتصال...</span>
+</div>
+
+<!-- QR Code -->
+<div id="qr-section">
+  <h3>📱 امسح QR Code لربط واتساب</h3>
+  <p>
+    افتح واتساب على تليفونك<br>
+    ← ثلاث نقاط ← الأجهزة المرتبطة ← ربط جهاز<br>
+    وامسح الكود ده
+  </p>
+  <img id="qr-img" src="" alt="QR Code"/>
+</div>
+
+<!-- Main Grid -->
+<div class="grid">
+
+  <!-- Message Template -->
+  <div class="card">
+    <h3>✏️ قالب الرسالة</h3>
+    <label>اكتب رسالتك — استخدم المتغيرات دي للتخصيص:</label>
+    <div class="hint" style="margin-bottom:10px;">
+      <span>{الاسم}</span> &nbsp;<span>{الفرع}</span> &nbsp;<span>{الرقم}</span>
+    </div>
+    <textarea id="msg-template" placeholder="مثال:&#10;عزيزي {الاسم}،&#10;شكراً لزيارتك فرع {الفرع}!&#10;يسعدنا استقبالك دائماً 😊"></textarea>
+    <div style="margin-top:12px;">
+      <label>معاينة الرسالة (أول جهة اتصال):</label>
+      <div id="preview-box"></div>
+    </div>
+  </div>
+
+  <!-- Image Upload -->
+  <div class="card">
+    <h3>🖼️ صورة (اختياري)</h3>
+    <div class="upload-area" id="img-upload-area">
+      <input type="file" id="img-input" accept="image/*">
+      <div class="icon">🖼️</div>
+      <p>اسحب صورة هنا أو اضغط للاختيار</p>
+      <div class="filename" id="img-filename"></div>
+    </div>
+    <img id="img-preview" src="" alt="معاينة الصورة">
+
+    <div style="margin-top:20px;">
+      <h3 style="margin-bottom:14px;">📋 ملف CSV</h3>
+      <div class="upload-area" id="csv-upload-area">
+        <input type="file" id="csv-input" accept=".csv">
+        <div class="icon">📋</div>
+        <p>ارفع ملف CSV<br><small style="font-size:0.78rem;">أعمدة: الاسم، الرقم، الفرع</small></p>
+        <div class="filename" id="csv-filename"></div>
+      </div>
+      <div id="contacts-info"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Delay & Start -->
+<div class="card" style="margin-bottom:16px;">
+  <h3>⏱️ الفاصل الزمني بين الرسائل</h3>
+  <div class="delay-row">
+    <div>
+      <label>الحد الأدنى (دقائق)</label>
+      <input type="number" id="delay-min" value="3" min="1" max="60">
+    </div>
+    <div>
+      <label>الحد الأقصى (دقائق)</label>
+      <input type="number" id="delay-max" value="5" min="1" max="60">
+    </div>
+  </div>
+  <div class="hint" style="margin-top:10px;">⚠️ لا تقل عن 3 دقائق لتجنب الحظر</div>
+
+  <button class="btn-start" id="btn-start" disabled>⚡ ابدأ الإرسال</button>
+  <button class="btn-stop" id="btn-stop">⛔ وقف الإرسال</button>
+</div>
+
+<!-- Progress -->
+<div class="card" id="progress-section" style="margin-bottom:16px;">
+  <h3>📊 تقدم الإرسال</h3>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+  <div class="progress-text">
+    <span id="progress-done">0 / 0</span>
+    <span id="progress-pct">0%</span>
+  </div>
+  <div class="countdown" id="countdown"></div>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h3>📝 سجل الإرسال</h3>
+  <div id="log-list"><div style="color:var(--muted);font-size:0.85rem;">لم يبدأ الإرسال بعد...</div></div>
+</div>
+
+<script>
+  let contacts = [];
+  let imagePath = null;
+  let countdownInterval = null;
+
+  // ── Poll status ──────────────────────────────────────────────────────────
+  async function pollStatus() {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+
+      const dot = document.getElementById('status-dot');
+      const txt = document.getElementById('status-text');
+      const qrSec = document.getElementById('qr-section');
+
+      if (data.connected) {
+        dot.className = 'status-dot connected';
+        txt.textContent = 'واتساب متصل ✓';
+        qrSec.style.display = 'none';
+        updateStartBtn();
+      } else if (data.qr) {
+        dot.className = 'status-dot waiting';
+        txt.textContent = 'في انتظار مسح QR Code...';
+        qrSec.style.display = 'block';
+        // Generate QR as image using qrcode CDN
+        loadQR(data.qr);
+      } else {
+        dot.className = 'status-dot';
+        txt.textContent = 'جاري الاتصال...';
+        qrSec.style.display = 'none';
+      }
+
+      // Update progress
+      if (data.job) {
+        updateProgress(data.job);
+      }
+
+      // Update log
+      if (data.log && data.log.length > 0) {
+        updateLog(data.log);
+      }
+
+      // Sending state
+      const stopBtn = document.getElementById('btn-stop');
+      if (data.sending || (data.job && data.job.active)) {
+        stopBtn.style.display = 'block';
+        document.getElementById('progress-section').style.display = 'block';
+      } else {
+        stopBtn.style.display = 'none';
+      }
+
+      // Countdown
+      if (data.job && data.job.active && data.job.nextAt) {
+        startCountdown(data.job.nextAt);
+      } else if (!data.job || !data.job.active) {
+        clearInterval(countdownInterval);
+        document.getElementById('countdown').textContent = '';
+      }
+
+    } catch(e) {}
+    setTimeout(pollStatus, 2500);
+  }
+
+  // ── QR Loader ────────────────────────────────────────────────────────────
+  async function loadQR(qrData) {
+    // Use qrserver API to render QR
+    const encoded = encodeURIComponent(qrData);
+    document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encoded}`;
+  }
+
+  // ── Progress ─────────────────────────────────────────────────────────────
+  function updateProgress(job) {
+    const total = job.total || 1;
+    const done = (job.done || 0) + (job.failed || 0);
+    const pct = Math.round((done / total) * 100);
+
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-done').textContent = `${done} / ${total}`;
+    document.getElementById('progress-pct').textContent = pct + '%';
+    document.getElementById('progress-section').style.display = 'block';
+  }
+
+  // ── Countdown ────────────────────────────────────────────────────────────
+  function startCountdown(nextAt) {
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      const remaining = Math.max(0, nextAt - Date.now());
+      if (remaining === 0) {
+        document.getElementById('countdown').textContent = 'جاري الإرسال...';
+        clearInterval(countdownInterval);
+        return;
+      }
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      document.getElementById('countdown').textContent =
+        `⏳ الرسالة الجاية بعد ${mins}:${String(secs).padStart(2,'0')} دقيقة`;
+    }, 500);
+  }
+
+  // ── Log ──────────────────────────────────────────────────────────────────
+  function updateLog(log) {
+    const container = document.getElementById('log-list');
+    container.innerHTML = '';
+    [...log].reverse().forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'log-item ' + (item.status === 'تم' ? 'success' : 'fail');
+      div.innerHTML = `
+        <span class="log-time">${item.time}</span>
+        <span class="log-name">${item.name || item.phone}</span>
+        <span class="log-status">${item.status}</span>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  // ── Image Upload ─────────────────────────────────────────────────────────
+  document.getElementById('img-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('img-filename').textContent = file.name;
+
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = document.getElementById('img-preview');
+      img.src = ev.target.result;
+      img.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    // Upload
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch('/api/upload-image', { method: 'POST', body: form });
+    const data = await res.json();
+    imagePath = data.path;
+  });
+
+  // ── CSV Upload ───────────────────────────────────────────────────────────
+  document.getElementById('csv-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('csv-filename').textContent = file.name;
+
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload-csv', { method: 'POST', body: form });
+    const data = await res.json();
+    contacts = data.contacts || [];
+
+    const info = document.getElementById('contacts-info');
+    info.style.display = 'block';
+    info.innerHTML = `✅ تم رفع <strong style="color:var(--green)">${contacts.length}</strong> جهة اتصال`;
+
+    updatePreview();
+    updateStartBtn();
+  });
+
+  // ── Message Preview ──────────────────────────────────────────────────────
+  document.getElementById('msg-template').addEventListener('input', updatePreview);
+
+  function updatePreview() {
+    const tmpl = document.getElementById('msg-template').value;
+    const box = document.getElementById('preview-box');
+    if (!tmpl) { box.style.display = 'none'; return; }
+
+    const sample = contacts[0] || { name: 'أحمد محمد', branch: 'المعادي', phone: '01012345678' };
+    const preview = tmpl
+      .replace(/{الاسم}/g, sample.name || 'أحمد محمد')
+      .replace(/{الفرع}/g, sample.branch || 'المعادي')
+      .replace(/{الرقم}/g, sample.phone || '01012345678');
+
+    box.textContent = preview;
+    box.style.display = 'block';
+  }
+
+  // ── Start Button ─────────────────────────────────────────────────────────
+  function updateStartBtn() {
+    const btn = document.getElementById('btn-start');
+    const connected = document.getElementById('status-dot').classList.contains('connected');
+    btn.disabled = !(connected && contacts.length > 0);
+  }
+
+  document.getElementById('btn-start').addEventListener('click', async () => {
+    const template = document.getElementById('msg-template').value.trim();
+    if (!template) return alert('اكتب قالب الرسالة الأول');
+
+    const delayMin = parseInt(document.getElementById('delay-min').value) || 3;
+    const delayMax = parseInt(document.getElementById('delay-max').value) || 5;
+
+    const res = await fetch('/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contacts, template, imagePath, delayMin, delayMax })
+    });
+    const data = await res.json();
+    if (data.started) {
+      document.getElementById('btn-stop').style.display = 'block';
+      document.getElementById('progress-section').style.display = 'block';
+    } else {
+      alert(data.error || 'حصل خطأ');
+    }
+  });
+
+  // ── Stop ─────────────────────────────────────────────────────────────────
+  document.getElementById('btn-stop').addEventListener('click', async () => {
+    await fetch('/api/stop', { method: 'POST' });
+    document.getElementById('btn-stop').style.display = 'none';
+    document.getElementById('countdown').textContent = 'تم الإيقاف';
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  pollStatus();
+</script>
+</body>
+</html>
